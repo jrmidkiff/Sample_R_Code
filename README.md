@@ -1,6 +1,8 @@
 # Sample_R_Code
 Author:  James Midkiff
+
 Month and year written:  September 2017
+
 Use Alt + O to minimize to section headings, use Alt + Shift + O to reverse
 
 Descriptive Text: 
