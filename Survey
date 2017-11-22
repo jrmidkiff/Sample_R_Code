@@ -145,7 +145,7 @@ ggplot(basic5_grants, aes(x = GRANT, y = perc, fill = GRANT)) +
   geom_col(size = 1, color = "black") +
   geom_text(aes(label = paste0(round(perc * 100, 0), "%")), position = position_dodge(0.9), vjust = -.8, size = 5.5) +
   labs(y = "Percentage of Valid Survey Respondents", 
-       title = "Percentage of Respondents Who Say a $10k, $20k, or $30k Grant Will\nModerately or Significantly Increase the Likelihood They Purchase a Home in the City of Study") +
+       title = "Percentage of Respondents by Age Group Who Say a $10k, $20k, or $30k Grant Will\nModerately or Significantly Increase the Likelihood They Purchase a Home in the City of Study") +
   facet_grid(. ~ crosstab5) +
   scale_y_continuous(labels = percent) + 
   theme(axis.text.x = element_text(size = 12, face = "bold"),
