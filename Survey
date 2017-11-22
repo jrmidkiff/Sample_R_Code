@@ -1,0 +1,165 @@
+# Author:  James Midkiff
+# Be sure to read the ReadMe file!
+
+#Preparation#########
+library(gsheet)
+library(stringr)
+library(lubridate)
+library(forcats)
+library(tidyverse)
+library(scales)
+library(RColorBrewer)
+
+#I have the dataset saved on my google drive
+original <- read_csv(
+  gsheet2text("https://docs.google.com/spreadsheets/d/1j-gevCJ6K9PfqQwnmg42UUNAQ5Z-YD-FBanKCNfx9EA/edit?usp=sharing"))
+
+#I'm going to work in the file called survey, but leave the original just in case i make a mistake
+survey <- original
+
+(row_vector <- 1:length(original))
+original <- rbind(original, row_vector) # This adds a row so I know what column I'm working with. 
+                                        
+dim(original) # The dimensions (1,262 responses, 93 columns)
+
+View(original) # I recommend sorting (by clicking) on the first column to have the column number appear. 
+
+# This survey was made (not by me) in Survey Monkey, and it had a lot of checkbox questions. So when Survey Monkey 
+# exports that, each option is now spread into its own category (i.e. columns 1-10 which is one question that asks 
+# 'Which category best describes your status?'). 
+
+options(max.print = 25)
+
+###########################CROSSTAB 5 - AGE ################# 
+names(survey) <- str_replace_all(names(survey), "[[:punct:]]|\\s|\\$", "") #Leave only alphanumeric characters
+
+#This combines all of the Age checkboxes together into one single column which was my 5th crosstab
+survey <- survey %>% 
+  unite(crosstab5, Age20andunder:Age65andover, remove = FALSE) %>% 
+  mutate(crosstab5 = str_replace_all(crosstab5, c("NA" = "", "_" = ""))) %>% 
+  select(-crosstab5, everything()) 
+  
+# This is an iteration to group_by one column and then count and get the proportion of the categories in all the other columns based on that crosstab,
+# and then name them (except the last column). This was very important during the actual survey analysis because I had 7 crosstabs
+# and my supervisor wanted this done for each question (of the 40+) in the survey
+
+(output5 <- vector("list", length = length(survey))) #An output to populate
+
+for (i in seq_along(survey)) {
+  (column <- names(survey[i])) #one at a time this takes the names of the columns in 'survey'
+  (temp <- survey %>% 
+      group_by(crosstab5) %>% 
+      count_(column) %>%
+      ungroup()) #this does a group_by, count, and then ungroup for each column in survey, with the column called crosstab5
+  (temp <- temp %>% dplyr::filter(!is.na(temp[,2]))) #this filters out empty responses for the 'column' in question
+  (output5[[i]] <- temp %>% 
+      group_by_(column) %>%
+      mutate(perc = n/sum(n)) %>%
+      ungroup()) #this does a group_by, and then mutate for a proportion. Ungroups are necessary.
+  if(length(output5[[i]]) == 4) {
+    names(output5[[i]]) <- c("crosstab5", "metric", "n", "perc") #This renames uniformly, but will ignore when the crosstab counts itself
+  } 
+}
+
+
+print(output5, max = length(output5)) 
+
+# 5.1: Rental Incentives as a function of respondents' age##############
+
+# I then use the crosstab 5 (respondents' age) to determine how respondents answered
+# differently to the various home purchase incentives of a $10,000 grant, $20,000 grant, and $30,000 grant
+
+# This tells me the first column is 53, and then I visually look (at the 'original' dataset) 
+# to see how the other columns line up. Unfortunately this is manual, but given that each survey is different
+# (these questions were specific to the client, I )
+which(colnames(survey) == "PleaseratehowthefollowingincentiveswouldimpactyourinterestinpurchasingahomeintheCityofstudycityCanbetailoredtoindividualneighborhoodforeachinstitution10000grantwouldberequiredtopaybackaportionifyoumovedinlessthanfiveyearsNoeffect")
+
+output5[53:56] 
+# What this shows is for the $10k grants question, the number of people that answered
+# each way (no effect, slightly increase, etc.) by their age group and then a percentage.
+# Sometimes I use this percentage, other times I did not, but it made the summation for each 
+# question much easier by extracting from a list rather than making individual data frames for 
+# the 40 + questions and the 7 different crosstabs my supervisor wanted. 
+
+# I bind all of the answers to $10,000 grant (No effect, Slightly Increase, Moderately Increase, and Significantly Increase) together
+# and clean it up
+grants_cleanup <- function(x) {
+  x <- x %>%
+    gather(junk, metric, -n, -crosstab5, -perc, factor_key = TRUE) %>%
+    filter(!is.na(metric), !is.na(crosstab5), crosstab5 != "") %>%
+    select(-junk) %>% mutate(metric = as_factor(metric))
+}
+
+(grant10k_imp_purchase_prop <- do.call("rbind", output5[53:56])) 
+(grant10k_imp_purchase_prop <- grants_cleanup(grant10k_imp_purchase_prop))
+  
+#Same for $20k grant
+(grant20k_imp_purchase_prop <- do.call("rbind", output5[57:60]))
+grant20k_imp_purchase_prop <- grants_cleanup(grant20k_imp_purchase_prop)
+
+#Same for $30k grant
+(grant30k_imp_purchase_prop <- do.call("rbind", output5[61:64]))
+grant30k_imp_purchase_prop <- grants_cleanup(grant30k_imp_purchase_prop)
+
+#Identifier
+(grant10k_imp_purchase_prop <- grant10k_imp_purchase_prop %>%
+   mutate(GRANT = "10k"))
+(grant20k_imp_purchase_prop <- grant20k_imp_purchase_prop %>%
+    mutate(GRANT = "20k"))
+(grant30k_imp_purchase_prop <- grant30k_imp_purchase_prop %>%
+    mutate(GRANT = "30k"))
+
+# Bind all of the various grants options together
+(basic_grants <- bind_rows(grant10k_imp_purchase_prop, grant20k_imp_purchase_prop, grant30k_imp_purchase_prop))
+
+#Get the total number of answers for each question ($10k grant, $20k grant, and $30k grant)
+(total.answers <- basic_grants %>%
+    ungroup() %>%
+    group_by(crosstab5, GRANT) %>%
+    mutate(total.answers = sum(n)) %>%
+    select(crosstab5, GRANT, total.answers) %>%
+    distinct())
+
+# We're only going to look at the proportion of respondents who said it would Moderately or Significantly
+# increase the likelihood of them moving
+basic_grants <- basic_grants %>%
+  filter(metric == "Moderately increase" | metric == "Significantly increase",
+         crosstab5 != "") %>%
+  ungroup() %>%
+  group_by(crosstab5, GRANT) %>%
+  summarise(n = sum(n))
+
+# Get the proportion by dividing the number of responses to that crosstab/question/answer combination
+# by the total number of answers for that age_group
+(basic5_grants <- 
+    left_join(basic_grants, total.answers, by = c("crosstab5" = "crosstab5", "GRANT" = "GRANT")) %>%
+    ungroup() %>%
+    mutate(perc = n/total.answers,
+           crosstab5 = str_replace_all(crosstab5, c("20 and under" = "20 and Under",
+                                                    "65 and over" = "65 and Over"))))
+# EX: 18 people less than 20 years age answered that a $10k grant would moderately or significantly
+# increase the likelihood of them purchasing a home in the Study City, out of a total of 43  
+# in that age group who answered the question, representing 41.9% (42% in the graph)
+
+ggplot(basic5_grants, aes(x = GRANT, y = perc, fill = GRANT)) +
+  geom_col(size = 1, color = "black") +
+  geom_text(aes(label = paste0(round(perc * 100, 0), "%")), position = position_dodge(0.9), vjust = -.8, size = 5.5) +
+  labs(y = "Percentage of Valid Survey Respondents", 
+       title = "Percentage of Respondents Who Say a $10k, $20k, or $30k Grant Will\nModerately or Significantly Increase the Likelihood They Purchase a Home in the City of Study") +
+  facet_grid(. ~ crosstab5) +
+  scale_y_continuous(labels = percent) + 
+  theme(axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 14),
+        panel.border = element_rect(color = "black", linetype = "solid", fill = NA),
+        axis.title.x = element_blank(), 
+        axis.title.y = element_text(size = 16),
+        legend.position = "none",
+        title = element_text(size = 15, face = "bold"),
+        strip.text = element_text(size = 13, face = "bold"),
+        strip.background = element_rect(fill = "gray95"),
+        panel.background = element_rect(fill = "gray95"),
+        plot.background = element_rect(fill = "gray95")) +
+  scale_fill_manual(values = c("#B2DE8C", "#63AF5F", "#1B7837")) +
+  scale_x_discrete(labels = c("10k" = "$10k", "20k" = "$20k", "30k" = "$30k"))
+  
+  #Click Zoom and Maximize to See Full Extent of Graph
