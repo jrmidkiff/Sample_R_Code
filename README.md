@@ -11,4 +11,4 @@ With this code, I show part of the analysis I did for n = 1,262 responses from a
 
 This code does not represent the entirety of the analysis that I did on this project. My surpervisor wanted to see how respondents varied their answers depending upon seven different 'cross tabs' (household income, presence of children at home, location, renter or owner, length of time working, and age group. Of these, I only present one (Age group).
 
-I have modified the survey dataset by removing identifiable information and drastically reducing the number of questions present
+I have modified the survey dataset by removing identifiable information and drastically reducing the number of questions present.
