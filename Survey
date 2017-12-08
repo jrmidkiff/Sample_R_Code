@@ -2,7 +2,8 @@
 # Be sure to read the ReadMe file!
 
 #Preparation#########
-#If you are missing any of these packages, you will need to install them in order for the code to run
+#If you are missing any of the following packages, you will need to install them in order for the code to run
+#install.packages(c("gsheet", "stringr", "lubridate", "forcats", "tidyverse", "scales", "RColorBrewer"))
 library(gsheet)
 library(stringr)
 library(lubridate)
