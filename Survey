@@ -2,6 +2,7 @@
 # Be sure to read the ReadMe file!
 
 #Preparation#########
+#If you are missing any of these packages, you will need to install them in order for the code to run
 library(gsheet)
 library(stringr)
 library(lubridate)
@@ -71,7 +72,7 @@ print(output5, max = length(output5))
 
 # This tells me the first column is 53, and then I visually look (at the 'original' dataset) 
 # to see how the other columns line up. Unfortunately this is manual, but given that each survey is different
-# (these questions were specific to the client, I )
+# (these questions were specific to the client), I can't automate the column selection
 which(colnames(survey) == "PleaseratehowthefollowingincentiveswouldimpactyourinterestinpurchasingahomeintheCityofstudycityCanbetailoredtoindividualneighborhoodforeachinstitution10000grantwouldberequiredtopaybackaportionifyoumovedinlessthanfiveyearsNoeffect")
 
 output5[53:56] 
@@ -120,8 +121,8 @@ grant30k_imp_purchase_prop <- grants_cleanup(grant30k_imp_purchase_prop)
     select(crosstab5, GRANT, total.answers) %>%
     distinct())
 
-# We're only going to look at the proportion of respondents who said it would Moderately or Significantly
-# increase the likelihood of them moving
+# My supervisor only wanted to look at the proportion of respondents who said it would Moderately or Significantly
+# increase the likelihood of them moving to the City of Study
 basic_grants <- basic_grants %>%
   filter(metric == "Moderately increase" | metric == "Significantly increase",
          crosstab5 != "") %>%
@@ -130,7 +131,7 @@ basic_grants <- basic_grants %>%
   summarise(n = sum(n))
 
 # Get the proportion by dividing the number of responses to that crosstab/question/answer combination
-# by the total number of answers for that age_group
+# by the total number of answers for that age_group. "Basic5" is to signal that the crosstab has been completed
 (basic5_grants <- 
     left_join(basic_grants, total.answers, by = c("crosstab5" = "crosstab5", "GRANT" = "GRANT")) %>%
     ungroup() %>%
